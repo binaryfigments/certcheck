@@ -1,3 +1,7 @@
+/*
+ * Concent code
+ */
+
 package main
 
 import (
@@ -19,16 +23,14 @@ import (
 )
 
 func main() {
-	// Echo instance
 	e := echo.New()
 
-	// Middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	// Route => handler
 	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "Hello, World\n")
+		// return c.String(http.StatusForbidden, "Forbidden, nothing here.")
+		return c.JSON(http.StatusForbidden, "Forbidden, nothing here.")
 	})
 
 	e.GET("/certificate/:fqdn", func(c echo.Context) error {
@@ -38,8 +40,73 @@ func main() {
 		return c.JSONPretty(http.StatusOK, r, "  ")
 	})
 
+	e.GET("/headers/:scheme/:fqdn", func(c echo.Context) error {
+		fqdn := c.Param("fqdn")
+		scheme := c.Param("scheme")
+
+		schemes := []string{"http", "https"}
+
+		if !stringInSlice(scheme, schemes) {
+			fmt.Println("The word Save is not in the list!")
+			// return c.String(http.StatusBadRequest, "Bad request: invalid scheme.")
+			return c.JSON(http.StatusBadRequest, "Bad request: invalid scheme.")
+		}
+
+		r := returnHeaders(fqdn, scheme)
+		// return c.JSON(http.StatusOK, r)
+		return c.JSONPretty(http.StatusOK, r, "  ")
+	})
+
 	// Start server
 	e.Logger.Fatal(e.Start(":1323"))
+}
+
+func stringInSlice(str string, list []string) bool {
+	for _, v := range list {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
+
+func returnHeaders(fqdn string, scheme string) ResponseHeaders {
+	// headers
+	var result string
+	var resultmessage string
+
+	req, err := http.NewRequest("GET", scheme+"://"+fqdn, nil)
+	req.Header.Add("User-Agent", "ocsr.nl Checker")
+	if err != nil {
+		log.Fatalln(err)
+		result = "FAILED"
+		resultmessage = "Could not get response headers. (1)"
+		checkResult := ResponseHeaders{
+			Result:        result,
+			ResultMessage: resultmessage,
+		}
+		return checkResult
+	}
+	resp, err := http.DefaultTransport.RoundTrip(req)
+	if err != nil {
+		log.Fatalln(err)
+
+		result = "FAILED"
+		resultmessage = "Could not get response headers. (2)"
+		checkResult := ResponseHeaders{
+			Result:        result,
+			ResultMessage: resultmessage,
+		}
+		return checkResult
+	}
+	resp.Body.Close()
+
+	result = "OK"
+	checkResult := ResponseHeaders{
+		Result:  result,
+		Headers: resp.Header,
+	}
+	return checkResult
 }
 
 func returnCertificateInformation(fqdn string) CertWithLint {
@@ -134,4 +201,11 @@ type CertWithLint struct {
 	Parsed        *x509.Certificate `json:"parsed,omitempty"`
 	ZLint         *zlint.ResultSet  `json:"zlint,omitempty"`
 	Raw           []byte            `json:"raw,omitempty"`
+}
+
+// ResponseHeaders struct
+type ResponseHeaders struct {
+	Result        string      `json:"result,omitempty"`
+	ResultMessage string      `json:"resultmessage,omitempty"`
+	Headers       interface{} `json:"headers,omitempty"`
 }
