@@ -75,7 +75,7 @@ func returnHeaders(fqdn string, scheme string) ResponseHeaders {
 	var result string
 	var resultmessage string
 
-	req, err := http.NewRequest("GET", scheme+"://"+fqdn, nil)
+	req, err := http.NewRequest("HEAD", scheme+"://"+fqdn, nil)
 	req.Header.Add("User-Agent", "ocsr.nl Checker")
 	if err != nil {
 		log.Fatalln(err)
